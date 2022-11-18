@@ -46,14 +46,12 @@
         android:layout_width="match_parent"
         android:layout_height="200dp"
         android:layout_marginTop="28dp"
-        android:background="@color/teal_200"
-        android:cacheColorHint="@color/teal_700"
-        android:outlineAmbientShadowColor="#A56363"
         app:layout_constraintBottom_toTopOf="@+id/etMessage"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/btnWifiState"
-        app:layout_constraintVertical_bias="0.0"></ListView>
+        app:layout_constraintVertical_bias="0.0"
+        android:listSelector="#27e299"></ListView>
 
     <TextView
         android:id="@+id/tvMessage"

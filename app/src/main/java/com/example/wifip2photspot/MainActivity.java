@@ -3,6 +3,7 @@ package com.example.wifip2photspot;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.content.BroadcastReceiver;
@@ -16,10 +17,12 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -74,26 +77,38 @@ public class MainActivity extends AppCompatActivity {
         exqListeners();
         requestUserPermission();
 
-
     }
 
     public void requestUserPermission() {
 
+        ArrayList<String> permissions = new ArrayList<String>();
+
         if(ActivityCompat.checkSelfPermission(this,Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED){
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},0);
+            permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
         }
+
         if(ActivityCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},1);
+            permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
         }
-        if(ActivityCompat.checkSelfPermission(this,Manifest.permission.CHANGE_WIFI_STATE) != PackageManager.PERMISSION_GRANTED){
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CHANGE_WIFI_STATE},0);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if(ActivityCompat.checkSelfPermission(this,Manifest.permission_group.NEARBY_DEVICES) != PackageManager.PERMISSION_GRANTED){
+                permissions.add(Manifest.permission_group.NEARBY_DEVICES);
+            }
         }
+        String[] str = new String[permissions.size()];
+
+        for (int i = 0; i < permissions.size(); i++) {
+            str[i] = permissions.get(i);
+        }
+
+        ActivityCompat.requestPermissions(this, str,1);
+
     }
 
     private void exqListeners() {
 
         btnWifiState.setOnClickListener(view -> {
-            Intent intent = new Intent(Settings.ACTION_WIFI_SETTINGS);
+            Intent intent = new Intent(Settings.Panel.ACTION_WIFI);
             startActivityForResult(intent, 1);
 
         });
@@ -103,6 +118,8 @@ public class MainActivity extends AppCompatActivity {
                 requestUserPermission();
                 return;
             }
+
+
             manager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
                 @Override
                 public void onSuccess() {
@@ -169,32 +186,42 @@ public class MainActivity extends AppCompatActivity {
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
 
+        Log.d("debug","1");
+
     }
 
     WifiP2pManager.PeerListListener peerListListener = new WifiP2pManager.PeerListListener() {
         @Override
         public void onPeersAvailable(WifiP2pDeviceList wifiP2pDeviceList) {
-             if(!wifiP2pDeviceList.equals(wifiP2pDeviceList)){
-                 peers.clear();
-                 peers.addAll(wifiP2pDeviceList.getDeviceList());
 
-                 devicesNames = new String[wifiP2pDeviceList.getDeviceList().size()];
-                 deviceArray = new WifiP2pDevice[wifiP2pDeviceList.getDeviceList().size()];
 
-                 int index = 0;
-                 for(WifiP2pDevice device : wifiP2pDeviceList.getDeviceList()){
-                     devicesNames[index] = device.deviceName;
-                     deviceArray[index] = device;
-                     index++;
-                 }
+            if(!peers.equals(wifiP2pDeviceList.getDeviceList())) {
+                peers.clear();
+                peers.addAll(wifiP2pDeviceList.getDeviceList());
 
-                 ArrayAdapter<String> adapter = new ArrayAdapter<>(getApplicationContext(), android.R.layout.simple_list_item_1,devicesNames);
-                 listView.setAdapter(adapter);
-                 if(peers.size()==0){
-                     tvStatus.setText("No devices found");
-                     return;
-                 }
-             }
+                devicesNames = new String[wifiP2pDeviceList.getDeviceList().size()];
+                deviceArray = new WifiP2pDevice[wifiP2pDeviceList.getDeviceList().size()];
+
+                int index = 0;
+                for (WifiP2pDevice device : wifiP2pDeviceList.getDeviceList()) {
+                    devicesNames[index] = device.deviceName;
+                    deviceArray[index] = device;
+                    index++;
+                }
+
+                Log.d("debug", String.valueOf(devicesNames.length));
+                ArrayAdapter<String> adapter = new ArrayAdapter<>(getApplicationContext(), android.R.layout.simple_list_item_1, devicesNames);
+                listView.setAdapter(adapter);
+
+//                 adapter.addAll(wifiP2pDeviceList.getDeviceList().toString());
+                adapter.notifyDataSetChanged();
+                if (peers.size() == 0) {
+                    tvStatus.setText("No devices found");
+                    return;
+                }
+
+            }
+
         }
     };
 

@@ -6,10 +6,12 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.net.InetAddresses;
 import android.net.wifi.p2p.WifiP2pConfig;
@@ -28,6 +30,20 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.ResolvableApiException;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.LocationSettingsResponse;
+import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.google.android.gms.location.SettingsClient;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -67,7 +83,6 @@ public class MainActivity extends AppCompatActivity {
     boolean isHost;
 
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -83,15 +98,15 @@ public class MainActivity extends AppCompatActivity {
 
         ArrayList<String> permissions = new ArrayList<String>();
 
-        if(ActivityCompat.checkSelfPermission(this,Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
         }
 
-        if(ActivityCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if(ActivityCompat.checkSelfPermission(this,Manifest.permission_group.NEARBY_DEVICES) != PackageManager.PERMISSION_GRANTED){
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission_group.NEARBY_DEVICES) != PackageManager.PERMISSION_GRANTED) {
                 permissions.add(Manifest.permission_group.NEARBY_DEVICES);
             }
         }
@@ -101,7 +116,7 @@ public class MainActivity extends AppCompatActivity {
             str[i] = permissions.get(i);
         }
 
-        ActivityCompat.requestPermissions(this, str,1);
+        ActivityCompat.requestPermissions(this, str, 1);
 
     }
 
@@ -128,13 +143,58 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onFailure(int i) {
-                    tvStatus.setText("Discovery Failed");
+
+                    final Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                    startActivity(intent);
+
+                    LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
+                            .addLocationRequest(
+                                    (new LocationRequest())
+                                            .setInterval(10000)
+                                            .setFastestInterval(5000)
+                                            .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                            );
+
+                    SettingsClient client = LocationServices.getSettingsClient(getApplicationContext());
+                    Task<LocationSettingsResponse> task = client.checkLocationSettings(builder.build());
+
+                    task.addOnSuccessListener(MainActivity.this, new OnSuccessListener<LocationSettingsResponse>() {
+                        @Override
+                        public void onSuccess(LocationSettingsResponse locationSettingsResponse) {
+                            if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+
+                                return;
+                            }
+                            manager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
+                                @Override
+                                public void onSuccess() {
+                                    tvStatus.setText("Discovery Started");
+                                }
+
+                                @Override
+                                public void onFailure(int i) {
+                                    tvStatus.setText("Please Turn on location");
+                                }
+                            });
+                        }
+                    });
+
+                    task.addOnFailureListener(MainActivity.this, new OnFailureListener() {
+                        @Override
+                        public void onFailure(@NonNull Exception e) {
+                            tvStatus.setText("Please Turn on location");
+                        }
+                    });
+
+
+
                 }
             });
         });
 
         listView.setOnItemClickListener((adapterView, view, i, l) -> {
 
+//            Toast.makeText(this,Integer.toString(i),Toast.LENGTH_SHORT).show();
             final WifiP2pDevice device = deviceArray[i];
             WifiP2pConfig config = new WifiP2pConfig();
             config.deviceAddress = device.deviceAddress;
@@ -165,6 +225,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
     }
+
 
     private void initializeAll() {
 
